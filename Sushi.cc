@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Sushi.hh"
 
-std::string read_line(std::istream in)
+std::string read_line(std::istream &in)
 {
   return nullptr; // A placeholder
 }
