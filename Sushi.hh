@@ -1,11 +1,18 @@
 #pragma once
 #include <string> 
+#include <queue>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <cmath>
 
 class Sushi {
 private:
-  int history; // `int` is a placehoder; replace it with a type of your choice
+  std::queue <std::string> history;  // `int` is a placehoder; replace it with a type of your choice
   static const size_t HISTORY_LENGTH;
-  static const size_t MAX_INPUT;
+  static const size_t MAX_INPUT_SIZE;
+  static int count;
+  
 
 public:
   Sushi() : history() {};
