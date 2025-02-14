@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <cstdio>
 #include "Sushi.hh"
-
+//worked with Qian Qian and Damir on understanding instructions
 std::string Sushi::read_line(std::istream &in)
 {
   std::string line;
@@ -44,9 +44,16 @@ bool Sushi::read_config(const char *fname, bool ok_if_missing)
   // Read the config file
   while(!config_file.eof()) {
     std::string line = read_line(config_file);
-    store_to_history(line);
+    //tests line with parse command 
+    if(Sushi::parse_command(line)==0)
+    { //has syntax errors 
+      continue;
+    }
+    else
+    {
+      store_to_history(line);
+    }
   }
-  
   return true; 
 }
 
@@ -61,7 +68,7 @@ void Sushi::store_to_history(std::string line)
     history.pop_front();
   }
   
-  history.emplace_back(line);
+  history.push_back(line);
 }
 
 void Sushi::show_history() const
@@ -74,10 +81,19 @@ void Sushi::show_history() const
 
 void Sushi::set_exit_flag()
 {
-  // To be implemented
+  bool temp=get_exit_flag();
+  if(temp==true)
+  {
+    exit_flag=false;
+  }
+  else
+  {
+    exit_flag=true;
+  }
+
 }
 
 bool Sushi::get_exit_flag() const
 {
-  return false; // To be fixed
+  return exit_flag; 
 }
