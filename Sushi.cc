@@ -1,126 +1,129 @@
-#include <cmath>
+#include <iostream>
+#include <fstream>
+#include <algorithm>
+#include <iomanip>
+#include <cstdio>
 #include "Sushi.hh"
-// Do NOT
-// using namespace std;
 
 std::string Sushi::read_line(std::istream &in)
 {
   std::string line;
-  // DZ: Must check the returned value
-  getline(in,line);
-  //check \n
-  if(in.fail() && !in.eof())
-    {
-      // DZ: Wrong use of perror
-      // perror("Error");
-      std::perror("command line");
-      // DZ: Useless
-      // in.ignore(numeric_limits<streamsize>::max(), '\n');
-        return "";
+  if(!std::getline (in, line)) {// Has the operation failed?
+    if(!in.eof()) { 
+      std::perror("getline");
     }
-    //check if it exceeds 
-    if(line.size()>Sushi::MAX_INPUT_SIZE)
-    {
-      // DZ: "line" != "Line"
-      std::cerr << "line too long, truncated" << std::endl;
-      line=line.substr(0, Sushi::MAX_INPUT_SIZE);
-      return "";
-    }
+    return "";
+  }
+    
+  // Is the line empty?
+  if(std::all_of(line.begin(), line.end(), isspace)) {
+    return "";
+  }
 
-    // DZ: Must check for space characters first
-    //check if line empty/only whitespace
-    if(line.empty())
-    {
-      // DZ: Needless message
-      // std::cerr<<"line is empty"<<std::endl;
-      return "";
-    }
-    // DZ: Not this function's responsibility 
-      my_shell.store_to_history(line);
-      return line;
+  // Is the line too long?
+  if(line.size() > MAX_INPUT_SIZE) {
+    line.resize(MAX_INPUT_SIZE);
+    std::cerr << "Line too long, truncated." << std::endl;
+  }
+  
+  return line; 
 }
 
-//read_config
 bool Sushi::read_config(const char *fname, bool ok_if_missing)
 {
-  std::ifstream file(fname);
-	 if(!file.good())
-	{
-		if(ok_if_missing!=false)
-		{
-			return true;
-		}
-    else
-	{
-	  // DZ: Wrong use of perror
-	  // std::perror("error opening file");
-	  std::perror(fname);
-		 return false;
-	}
-	}
-	
-// while(!read_line(file).empty());
-while(!file.eof())
-  {
-    read_line(file);
-    // DZ: Insert into history here
+  // Try to open a config file
+  std::ifstream config_file(fname);
+  if (!config_file) {
+    if (!ok_if_missing) {
+      std::perror(fname);
+      return false;
+    }
+    return true;
   }
- file.close();
- // DZ: Cannot check the staus of a closed file
- //if(file.fail())
- //{
- //		std::perror("error closing file");
- // 		return false;
- //	}
-return true;
+
+  // Read the config file
+  while(!config_file.eof()) {
+    std::string line = read_line(config_file);
+    if(!parse_command(line)) {
+      store_to_history(line);
+    }
+  }
+  
+  return true; 
 }
+
 void Sushi::store_to_history(std::string line)
 {
-  // DZ: `size_t`, not `int` (unsigned comparison)
-  // DZ: The variable never used
-  int size=history.size();
-  if (line.empty()) 
-  {
-    return;
+  // Do not insert empty lines
+  if (line.empty()) {
+    return;    
   }
- if(history.size()==Sushi::HISTORY_LENGTH)
-  {
-    history.pop();
-    history.push(line); // DZ: Move outside of `if`
+
+  // Is the history buffer full?
+  while (history.size() >= HISTORY_LENGTH) {
+    history.pop_front();
   }
-else
-  {
-    history.push(line); // DZ: Move outside of `if`
-  }
-  count++;
+  
+  history.emplace_back(line);
 }
-void Sushi::show_history()
+
+void Sushi::show_history() 
 {
-  // DZ: Wrong interpretation of requirements
-  // DZ: Each string should be prefixed by the sequential number (starting at 1)
-  std::queue<std::string> temp = history;
-  // DZ: `size_t`, not `int` (unsigned comparison)
-  for (int i = 0; i < history.size(); i++) 
-  {
-    if(Sushi::count-history.size()<0)
-    {
-      std::cout << std::setw(5) << std::right << history.size()-Sushi::count+i << " " << temp.front() << std::endl;
-    }
-    else if(Sushi::count-history.size()>=0)
-    {
-      std::cout << std::setw(5) << std::right << Sushi::count-history.size()+i << " " << temp.front() << std::endl;
-    }
-    temp.pop();
-    
+  int index = 1;
+
+  // `history` itself will be inserted
+  if (history.size() == HISTORY_LENGTH) {
+    history.pop_front();
   }
+  
+  for (const auto &cmd: history) {
+    std::cout << std::setw(5) << index++ << "  " << cmd << std::endl;
+  }
+  
+  // `history` itself will be inserted
+  std::cout << std::setw(5) << index++ << "  " << "history" << std::endl;
 }
 
 void Sushi::set_exit_flag()
 {
-  // To be implemented
+  exit_flag = true;
 }
 
 bool Sushi::get_exit_flag() const
 {
-  return false; // To be fixed
+  return exit_flag;
+}
+
+//---------------------------------------------------------
+// New methods
+int Sushi::spawn(Program *exe, bool bg)
+{
+  // Must be implemented
+  UNUSED(exe);
+  UNUSED(bg);
+
+  return EXIT_SUCCESS;
+}
+
+void Sushi::prevent_interruption() {
+  // Must be implemented
+}
+
+void Sushi::refuse_to_die(int signo) {
+  // Must be implemented
+  UNUSED(signo);
+}
+
+char* const* Program::vector2array() {
+  // Must be implemented
+  return nullptr; 
+}
+
+void Program::free_array(char *const argv[]) {
+  // Must be implemented
+  UNUSED(argv);
+}
+
+Program::~Program() {
+  // Do not implement now
 }
