@@ -1,30 +1,36 @@
+#include <cstring> // DZ: for strlen
 #include "Sushi.hh"
 //used chatgpt to explain instructions
 std::string *Sushi::unquote_and_dup(const char* s)
 {
   std::string result="";
-  for(int i=0;i<sizeof(s);i++)
+  // DZ: sizeof(s) = sizeof(char*) = 4
+  // DZ: You need strlen(s)
+  // for(int i=0;i<sizeof(s);i++)
+    for(int i=0;i<strlen(s);i++)
 	{
     //determines if the character is a backslash
     char t=s[i];
     char backslash='\\';
-		if(t==backslash)
+    if(t==backslash) // DZ: Why not `if(t=='\\')` ? 
 		{
-      //character IS backslash 
-			// temp=s[i];
-      // temp+=s[i+1];
+		  //character IS backslash 
+		  // temp=s[i];
+		  // temp+=s[i+1];
+		  // DZ: `s[i,i+1]` is just `s[i+1]`
+		  // DZ: You probably meant something else
       switch(s[i,i+1])
       {
-        case '\a':
+      case '\a':  // DZ: must be 'a'
           result=result+'\a';
           break;
-        case '\b':
+        case '\b': // DZ: must be 'b'
           result=result+'\b';
           break;
-        case '\e':
-          result=result+'\e';
+        case '\e': // DZ: must be 'e'
+          result=result+'\x1B'; // DZ: '\e' is obsolete
           break;
-        case '\f':
+      case '\f': // DZ: ....
           result=result+'\f';
           break;
         case '\n':
@@ -57,14 +63,17 @@ std::string *Sushi::unquote_and_dup(const char* s)
       result+=s[i];
     }
 	//return tempStr;
-  return new std::string(result); // Must be changed
+    // DZ: `return` in the wrong position
+    // return new std::string(result); 
 }
+    return new std::string(result); 
 }
 
 void Sushi::re_parse(int i) 
 {
-  //store or return error 
-	if(i<=0 || i>history.size())
+  //store or return error
+  // DZ: comparison of integer expressions of different signedness
+  if(i<=0 || i>static_cast<unsigned>(history.size()))
 	{
 		std::cerr << "Error: " << i<< " event not found"<<std::endl;
 	}
