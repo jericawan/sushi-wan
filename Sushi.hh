@@ -29,12 +29,7 @@ private:
   Redirection redir;
   Program *pipe; // The previous program in the pipeline, if any; NULL otherwise
 
-  // Helper methods
-  // Converts the args to whatever `execvp` expects
-  char* const* vector2array();
-  // Frees the memory allocated by vector2array()
-  void free_array(char *const argv[]);
-
+  
 public:
   Program(std::vector<std::string*> *args) : args(args) {};
   ~Program();
@@ -42,7 +37,12 @@ public:
   void set_redir(Redirection &redir) { this->redir = redir; };
   std::string progname() { return *args->at(0); }
   void name(char *const argv[]);
-  char* const* vector2arrayPublic();
+  // Helper methods
+  // Converts the args to whatever `execvp` expects
+  char* const* vector2array();
+  // Frees the memory allocated by vector2array()
+  void free_array(char *const argv[]);
+
 };
 
 // Old class(es)

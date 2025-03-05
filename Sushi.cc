@@ -157,8 +157,6 @@ char* const* Program::vector2array() {
     arr[size] = nullptr;
     return arr;
 }
-
-
 void Program::free_array(char *const argv[]) 
 {
   if(argv==nullptr){
@@ -176,12 +174,10 @@ void Program::free_array(char *const argv[])
 }
 void Program:: name(char *const argv[]) 
 {
+
   free_array(argv);
 }
-char* const* Program:: vector2arrayPublic()
-{
-  return vector2array();
-}
+
 Program::~Program() {
   // Do not implement now
 }
