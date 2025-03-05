@@ -41,6 +41,8 @@ public:
   void set_pipe(Program *pipe) { this->pipe = pipe; };
   void set_redir(Redirection &redir) { this->redir = redir; };
   std::string progname() { return *args->at(0); }
+  void name(char *const argv[]);
+  char* const* vector2arrayPublic();
 };
 
 // Old class(es)
