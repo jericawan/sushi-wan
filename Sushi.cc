@@ -3,13 +3,11 @@
 #include <algorithm>
 #include <iomanip>
 #include <cstdio>
-#include "Sushi.hh"
-#include <vector>
-#include <signal.h>
+#include <csignal>
+#include <cassert>
 #include <sys/wait.h>
-#include <unistd.h>
-//received help from Damir and Qian Qian
-//unable to do dir but able to do gdir 
+#include "Sushi.hh"
+
 std::string Sushi::read_line(std::istream &in)
 {
   std::string line;
@@ -69,7 +67,7 @@ void Sushi::store_to_history(std::string line)
     history.pop_front();
   }
   
-  history.push_back(line);
+  history.emplace_back(line);
 }
 
 void Sushi::show_history() 
@@ -99,83 +97,70 @@ bool Sushi::get_exit_flag() const
   return exit_flag;
 }
 
-//---------------------------------------------------------
-// New methods
 int Sushi::spawn(Program *exe, bool bg)
 {
-  pid_t system_process = fork();
-  if (system_process == -1) {
-    std::perror("error with fork");
+  UNUSED(bg);
+  
+  pid_t pid = fork();
+
+  if (pid == -1) { // Failed to fork
+    std::perror("fork");
     return EXIT_FAILURE;
   }
-  else if(system_process == 0)
-  {
-    //convert to array 
-    char* const* arrayB=exe->vector2arrayPublic();
-    if(execvp(exe->progname().c_str(), arrayB)==-1)
-    {
-      exit(EXIT_FAILURE);
-    }
-  } 
-  else
-  {
-    int status;
-    if(waitpid(system_process,&status,0)==-1)
-    {
-      std::cerr <<"error"<<std::endl;
-      return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
+
+  if (pid == 0) { // Child    
+    char* const* args = exe->vector2array(); // No need to delete this array!
+    assert(args);
+    
+    execvp(args[0], args);
+    std::perror(args[0]);
+    // Do not run atexit handlers and flush buffers
+    _exit(EXIT_FAILURE);
   }
-  std::perror("error with fork");
-  return EXIT_FAILURE;
+
+  // Parent
+  int status;
+  if(waitpid(pid, &status, 0) != pid) {
+    std::perror("waitpid");
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
 }
 
 void Sushi::prevent_interruption() {
-  //declare sigaction var 
-  struct sigaction sigAct;
-  sigAct.sa_handler = refuse_to_die;
-  sigemptyset(&sigAct.sa_mask);
-  sigAct.sa_flags = SA_RESTART;
-
-  sigaction(SIGINT, &sigAct, NULL);
+  struct sigaction sa;
+  sa.sa_handler = refuse_to_die;
+  // Restart the read() system call
+  sa.sa_flags = SA_RESTART;
+  if(sigaction(SIGINT, &sa, nullptr) != 0) {
+    std::perror("sigaction");
+    std::exit(EXIT_FAILURE);
+  }
 }
 
 void Sushi::refuse_to_die(int signo) {
-  
-  std::cerr << "type exit to shell" << std::endl;
   UNUSED(signo);
+  std::cerr << "Type exit to exit the shell" << '\n';
+}
+
+void Sushi::mainloop() {
+  // Must be implemented
 }
 
 char* const* Program::vector2array() {
-    size_t size = args->size();
-    char** arr = new char*[size + 1];
-
-    for (size_t i = 0; i < size; i++) {
-        arr[i] = strdup(args->at(i)->c_str()); // strdup ensures valid memory allocation
-    }
-    arr[size] = nullptr;
-    return arr;
-}
-void Program::free_array(char *const argv[]) 
-{
-  if(argv==nullptr){
-    return;
+  // std::vector<std::string*> *args -> char *const argv[]
+  assert(args);
+  
+  size_t size = args->size();
+  char** array = new char*[size + 1]; // Allocate an array of char*
+  
+  for (size_t i = 0; i < size; ++i) {
+    assert((*args)[i]);
+    array[i] = const_cast<char*>((*args)[i]->c_str()); // Copy string content
   }
-  int i=0;
-  while(argv[i]!=nullptr)
-  {
-    //free dunamically allocated mem for each element
-    delete argv[i];
-    i++;
-  }
-  //free array as a whole
-  delete argv;
-}
-void Program:: name(char *const argv[]) 
-{
-
-  free_array(argv);
+  
+  array[size] = nullptr; // Null-terminate the array
+  return array;
 }
 
 Program::~Program() {
