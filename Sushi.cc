@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <cstdio>
+#include <cstring> // DZ: For strdup
 #include "Sushi.hh"
 #include <vector>
 #include <signal.h>
@@ -103,6 +104,7 @@ bool Sushi::get_exit_flag() const
 // New methods
 int Sushi::spawn(Program *exe, bool bg)
 {
+  UNUSED(bg);
   pid_t system_process = fork();
   if (system_process == -1) {
     std::perror("error with fork");
@@ -110,10 +112,14 @@ int Sushi::spawn(Program *exe, bool bg)
   }
   else if(system_process == 0)
   {
-    //convert to array 
-    char* const* arrayB=exe->vector2arrayPublic();
+    //convert to array
+    // DZ -- ???
+    // char* const* arrayB=exe->vector2arrayPublic();
+    char* const* arrayB=exe->vector2array();
     if(execvp(exe->progname().c_str(), arrayB)==-1)
     {
+      // DZ: Error message???
+      std::perror(arrayB[0]);
       exit(EXIT_FAILURE);
     }
   } 
@@ -122,12 +128,16 @@ int Sushi::spawn(Program *exe, bool bg)
     int status;
     if(waitpid(system_process,&status,0)==-1)
     {
-      std::cerr <<"error"<<std::endl;
+      // DZ: Use perror to report errors
+      // std::cerr <<"error"<<std::endl;
+      std::perror("waitpid");
       return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
   }
-  std::perror("error with fork");
+  // DZ: Use perror to report errors
+  // std::perror("error with fork");
+  std::perror("fork");  
   return EXIT_FAILURE;
 }
 
@@ -142,9 +152,15 @@ void Sushi::prevent_interruption() {
 }
 
 void Sushi::refuse_to_die(int signo) {
-  
-  std::cerr << "type exit to shell" << std::endl;
+
+  // DZ: Wrong message
+  // std::cerr << "type exit to shell" << std::endl;
+  std::cerr << "Type exit to exit the shell\n";
   UNUSED(signo);
+}
+
+void Sushi::mainloop() {
+  // Must be implemented
 }
 
 char* const* Program::vector2array() {
@@ -152,6 +168,7 @@ char* const* Program::vector2array() {
     char** arr = new char*[size + 1];
 
     for (size_t i = 0; i < size; i++) {
+      // DZ: Wrong, there is no need to duplicate
         arr[i] = strdup(args->at(i)->c_str()); // strdup ensures valid memory allocation
     }
     arr[size] = nullptr;
@@ -165,7 +182,9 @@ void Program::free_array(char *const argv[])
   int i=0;
   while(argv[i]!=nullptr)
   {
+    // DZ: Do not duplicate, do not free
     //free dunamically allocated mem for each element
+    // DZ: It is an error to use delete after strdup()
     delete argv[i];
     i++;
   }
