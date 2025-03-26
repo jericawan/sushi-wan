@@ -64,14 +64,40 @@ void Sushi::re_parse(int i) {
 // Implement the function
 std::string *Sushi::getenv(const char* s) 
 {
-  return new std::string(s); // Must be changed - eventually
+  //change char to string 
+  const char* strName = std::getenv(s);
+
+  if (strName)
+  {
+    return new std::string("");
+  } else {
+    return new std::string(strName);
+  }
+
+
+ // return new std::string(s); // Must be changed - eventually
 }
 
 // Implement the function
 void Sushi::putenv(const std::string* name, const std::string* value)
-{
-  UNUSED(name);
-  UNUSED(value);
+{ 
+  //set name to const char* 
+ 
+  //create value var if it dne 
+  if(!name || !value)
+  {
+    return;
+  }  
+  else {
+    setenv(name->c_str(),value->c_str(), 1);
+  }
+  // check if method fails?
+  if(value->empty())
+  {
+    return;
+  }
+  delete name;
+  delete value;
 }
 
 //---------------------------------------------------------------

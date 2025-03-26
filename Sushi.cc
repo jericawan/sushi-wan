@@ -4,10 +4,11 @@
 #include <iomanip>
 #include <cstdio>
 #include <csignal>
+#include <unistd.h>
 #include <cassert>
 #include <sys/wait.h>
 #include "Sushi.hh"
-
+//received help from Damir and Chat gpt  
 std::string Sushi::read_line(std::istream &in)
 {
   std::string line;
@@ -47,9 +48,18 @@ bool Sushi::read_config(const char *fname, bool ok_if_missing)
   // Read the config file
   while(!config_file.eof()) {
     std::string line = read_line(config_file);
-    if(!parse_command(line)) {
+    if(line[0]=='#'|| line.empty())
+    {
+      continue;
+    }
+    else if(line=="exit")
+    {
+      exit(EXIT_SUCCESS);
+    }
+    else if(!parse_command(line)) {
       store_to_history(line);
     }
+    
   }
   
   return true; 
@@ -67,7 +77,7 @@ void Sushi::store_to_history(std::string line)
     history.pop_front();
   }
   
-  history.emplace_back(line);
+  history.push_back(line);
 }
 
 void Sushi::show_history() 
@@ -99,6 +109,7 @@ bool Sushi::get_exit_flag() const
 
 int Sushi::spawn(Program *exe, bool bg)
 {
+
   UNUSED(bg);
   
   pid_t pid = fork();
@@ -117,13 +128,23 @@ int Sushi::spawn(Program *exe, bool bg)
     // Do not run atexit handlers and flush buffers
     _exit(EXIT_FAILURE);
   }
-
-  // Parent
-  int status;
-  if(waitpid(pid, &status, 0) != pid) {
-    std::perror("waitpid");
-    return EXIT_FAILURE;
+  
+    // Parent
+  if (bg==true) 
+  {
+    int status;
+    if(waitpid(pid, &status, 0) != pid) {
+        std::perror("waitpid");
+        return EXIT_FAILURE;
+    }
+      status = WEXITSTATUS(status);
+      putenv(new std::string("?"), new std::string(std::to_string(status)));
+  } 
+  else
+  {
+    putenv(new std::string("?"), new std::string("0"));
   }
+
   return EXIT_SUCCESS;
 }
 
@@ -145,6 +166,41 @@ void Sushi::refuse_to_die(int signo) {
 
 void Sushi::mainloop() {
   // Must be implemented
+
+  Sushi::prevent_interruption();
+  
+  const char *home_dir = std::getenv("HOME");
+  // OK if missing!
+  if (home_dir) {
+    std::string config_path = std::string(home_dir) + "/" + Sushi::DEFAULT_CONFIG;
+    my_shell.read_config(config_path.c_str(), true);
+  }
+  //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  //-------------------------------------------
+  while(!my_shell.get_exit_flag()) {
+  if(getenv("PS1")->empty())
+  {
+    std::cout << Sushi::DEFAULT_PROMPT;
+  }
+  else if(!getenv("PS1")->empty())
+  {
+    std::cout<<getenv("PS1")->c_str();
+  }
+    
+   std::string command = Sushi::read_line(std::cin);
+
+    // while(!my_shell.get_exit_flag()) {
+    // std::cout << Sushi::DEFAULT_PROMPT;
+    // std::string command = Sushi::read_line(std::cin);
+    
+    if(!Sushi::parse_command(command)) {
+      // Re-execute from history if needed
+      if(!my_shell.re_execute()) {
+	// Do not insert the bangs (!)
+	my_shell.store_to_history(command);
+      }
+    }
+  }
 }
 
 char* const* Program::vector2array() {
