@@ -67,11 +67,12 @@ std::string *Sushi::getenv(const char* s)
   //change char to string 
   const char* strName = std::getenv(s);
 
-  if (strName)
+  if(strName)
   {
-    return new std::string("");
-  } else {
     return new std::string(strName);
+    
+  } else {
+    return new std::string("");
   }
 
 
