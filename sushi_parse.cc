@@ -1,43 +1,45 @@
+#include <cstring>
+#include <cassert>
 #include "Sushi.hh"
 
 std::string *Sushi::unquote_and_dup(const char* s)
 {
-  if (!s) { // Not required, but it is safer this way
-    return nullptr;
-  }
+  assert(s);
   
   std::string result;
+  result.reserve(std::strlen(s));
+  
   while (*s) {
     if (*s == '\\') {
-      if (*(s + 1)) {
-	switch (*(s + 1)) {
-	case 'a': result += '\a'; break;
-	case 'b': result += '\b'; break;
-	case 'e': result += '\x1B'; break;
-	case 'f': result += '\f'; break;
-	case 'n': result += '\n'; break;
-	case 'r': result += '\r'; break;
-	case 't': result += '\t'; break;
-	case 'v': result += '\v'; break;
-	case '\\': result += '\\'; break;
-	case '\'': result += '\''; break;
-	case '"': result += '"'; break;
-	default:
-	  result += *s;
-	  result += *(s + 1);
-	  break;
-	}
-	s += 2; // Skip escape sequence
-      } else { // Dangling \ at the EOS; undefined behavior
-	result += '\\';
-	return new std::string(result); 
-      }
-    } else {
-      result += *s;
       ++s;
+      if (!*s) {
+        result += '\\';
+        return new std::string(std::move(result));
+      }
+      
+      switch (*s) {
+      case 'a': result += '\a'; break;
+      case 'b': result += '\b'; break;
+      case 'e': result += '\x1B'; break;
+      case 'f': result += '\f'; break;
+      case 'n': result += '\n'; break;
+      case 'r': result += '\r'; break;
+      case 't': result += '\t'; break;
+      case 'v': result += '\v'; break;
+      case '\\': result += '\\'; break;
+      case '\'': result += '\''; break;
+      case '"': result += '"'; break;
+      default:
+	result += '\\';
+	result += *s;
+	break;
+      }
+      ++s;
+    } else {
+      result += *s++;
     }
   }
-  return new std::string(result); 
+  return new std::string(std::move(result)); 
 }
 
 bool Sushi::re_execute() {
@@ -64,16 +66,17 @@ void Sushi::re_parse(int i) {
 // Implement the function
 std::string *Sushi::getenv(const char* s) 
 {
-  return new std::string(s); // Must be changed - eventually
+  const char *value = std::getenv(s);
+  return new std::string(value ? value : "");
 }
 
 // Implement the function
 void Sushi::putenv(const std::string* name, const std::string* value)
 {
-  UNUSED(name);
-  UNUSED(value);
+  setenv(name->c_str(), value->c_str(), true);
+  delete name;
+  delete value;
 }
-
 
 //---------------------------------------------------------------
 // Do not modify this function
