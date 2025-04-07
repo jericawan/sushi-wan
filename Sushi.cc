@@ -109,8 +109,8 @@ bool Sushi::get_exit_flag() const
 
 int Sushi::spawn(Program *exe, bool bg)
 {
-
-  UNUSED(bg);
+  // DZ: Used!
+  // UNUSED(bg);
   
   pid_t pid = fork();
 
@@ -128,9 +128,10 @@ int Sushi::spawn(Program *exe, bool bg)
     // Do not run atexit handlers and flush buffers
     _exit(EXIT_FAILURE);
   }
-  
+
+  // DZ: Just the opposite
     // Parent
-  if (bg==true) 
+  if (bg==/*true*/false) 
   {
     int status;
     if(waitpid(pid, &status, 0) != pid) {
@@ -166,7 +167,7 @@ void Sushi::refuse_to_die(int signo) {
 
 void Sushi::mainloop() {
   // Must be implemented
-
+  // DZ: This code goes into the constructor!!!
   Sushi::prevent_interruption();
   
   const char *home_dir = std::getenv("HOME");
@@ -189,6 +190,7 @@ void Sushi::mainloop() {
     
    std::string command = Sushi::read_line(std::cin);
 
+   // DZ: Clean the comments before submitting
     // while(!my_shell.get_exit_flag()) {
     // std::cout << Sushi::DEFAULT_PROMPT;
     // std::string command = Sushi::read_line(std::cin);

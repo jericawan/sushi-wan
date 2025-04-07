@@ -16,7 +16,8 @@ int main(int argc, char *argv[])
     //checks if script exists/has errors 
     if(!my_shell.read_config(script,false))
     {
-      std::cerr << "Error reading script: " << script << std::endl;
+      // DZ: Already reported by read_config
+      // std::cerr << "Error reading script: " << script << std::endl;
       return EXIT_FAILURE;
     }
   }
