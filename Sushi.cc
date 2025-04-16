@@ -5,8 +5,10 @@
 #include <cstdio>
 #include <csignal>
 #include <cassert>
+#include <unistd.h>
 #include <sys/wait.h>
 #include "Sushi.hh"
+
 
 Sushi::Sushi()
 {
@@ -28,13 +30,12 @@ std::string Sushi::read_line(std::istream &in)
     if(!in.eof()) { 
       std::perror("getline");
     }
-    return {};
+    return "";
   }
     
   // Is the line empty?
-  if(std::all_of(line.begin(), line.end(),
-		 [](unsigned char c) { return std::isspace(c); })) {
-    return {};
+  if(std::all_of(line.begin(), line.end(), isspace)) {
+    return "";
   }
 
   // Is the line too long?
@@ -82,7 +83,7 @@ void Sushi::store_to_history(std::string line)
     history.pop_front();
   }
   
-  history.emplace_back(line);
+  history.push_back(line);
 }
 
 void Sushi::show_history()
@@ -114,33 +115,84 @@ bool Sushi::get_exit_flag() const
 
 int Sushi::spawn(Program *exe, bool bg)
 {  
-  const pid_t pid = fork();
+ std::vector<pid_t> child_pids;
+ std::vector<Program*> pipeline;
 
-  if (pid < 0) { // Failed to fork
-    std::perror("fork");
-    return EXIT_FAILURE;
+  Program* current=exe;
+  while(current !=nullptr)
+  {
+    pipeline.insert(pipeline.begin(),current);
+    current=current->get_pipe();
+  }
+  int prev[2]={-1,-1};
+  for (size_t i = 0; i < pipeline.size(); ++i) {
+    Program* current = pipeline[i];
+
+    int pipe_fd[2] = {-1, -1};
+    if (i < pipeline.size() - 1) {
+        // Create pipe for current -> next
+        if (pipe(pipe_fd) == -1) {
+            std::perror("pipe");
+            return -1;
+        }
+    }
+
+    pid_t pid = fork();
+    if (pid == -1) {
+        std::perror("fork");
+        return -1;
+    }
+
+    if (pid == 0) {
+      //prev
+        if (prev[0] != -1) {
+            dup2(prev[0], STDIN_FILENO);
+            close(prev[0]);
+        }
+        if (prev[1] != -1) {
+            close(prev[1]);
+        }
+        //pipe_fd
+        if (pipe_fd[1] != -1) {
+            dup2(pipe_fd[1], STDOUT_FILENO);
+            close(pipe_fd[1]);
+        }
+        if (pipe_fd[0] != -1) 
+        {
+            close(pipe_fd[0]);
+        }
+        char* const* argv = current->vector2array();
+        execvp(current->progname().c_str(), argv);
+        std::perror("execvp");
+        exit(EXIT_FAILURE);
+    }
+
+    child_pids.push_back(pid);
+
+    if (prev[0] != -1) 
+    {
+      close(prev[0]);
+    }
+    if (prev[1] != -1)
+    {
+       close(prev[1]);
+    }
+
+    prev[0] = pipe_fd[0];
+    prev[1] = pipe_fd[1];
+}
+
+  if (prev[0] != -1) close(prev[0]);
+  if (prev[1] != -1) close(prev[1]);
+
+  if (!bg) {
+      for (pid_t pid : child_pids) {
+          int status;
+          waitpid(pid, &status, 0);
+      }
   }
 
-  if (pid == 0) { // Child    
-    char* const* args = exe->vector2array(); // No need to delete this array!
-    assert(args);
-    
-    execvp(args[0], args);
-    std::perror(args[0]);
-    // Do not run atexit handlers and flush buffers
-    _exit(EXIT_FAILURE);
-  }
-
-  // Parent handles foreground execution, if necessary
-  int status = 0;
-  if (!bg && (waitpid(pid, &status, 0) != pid)) {
-    std::perror("waitpid");
-    return EXIT_FAILURE;
-  }
-
-  // Save the exit status in the environment
-  setenv("?", std::to_string(status).c_str(), true);
-  return EXIT_SUCCESS;
+  return 0;
 }
 
 void Sushi::prevent_interruption()

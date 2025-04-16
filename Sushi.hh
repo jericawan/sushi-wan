@@ -31,6 +31,8 @@ public:
   ~Program();
   void set_pipe(Program *pipe) { this->pipe = pipe; };
   void set_redir(Redirection &redir) { this->redir = redir; };
+  std::string progname() { return *args->at(0);}
+  Program* get_pipe() { return this-> pipe; }
   
   // Helper method(s)
   // Converts the args to whatever `execvp` expects
@@ -63,6 +65,8 @@ public:
   int spawn(Program *exe, bool bg);   
   static void prevent_interruption(); 
   static void refuse_to_die(int signo);
+
+  static int spawn(Program *exe, bool bg, int input_fd, int pipe_fd[2]);
     
   static const std::string DEFAULT_PROMPT;
   static const std::string DEFAULT_CONFIG;
