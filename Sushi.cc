@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include "Sushi.hh"
-
+//got help from qian qian, damir, chatgpt, and friend from outside school
 
 Sushi::Sushi()
 {
