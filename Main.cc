@@ -1,28 +1,22 @@
-#include <cstdlib>
 #include "Sushi.hh"
 
 // Initialize the static constants
-Sushi my_shell; 
 const std::string Sushi::DEFAULT_PROMPT = "sushi> ";
 const std::string Sushi::DEFAULT_CONFIG = "sushi.conf";
 
+// The constructor will read the configuration file, if present
+Sushi my_shell; 
+
 int main(int argc, char *argv[])
 {
-
-  //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  for(int i=1; i<argc; i++)
-  {
-    const char* script=argv[i];
-    //checks if script exists/has errors 
-    if(!my_shell.read_config(script,false))
-    {
-      // DZ: Already reported by read_config
-      // std::cerr << "Error reading script: " << script << std::endl;
+  // Execute command-line scripts
+  for (int i = 1; i < argc; ++i) {
+    if(!my_shell.read_config(argv[i], false /* NOT ok if missing */)) {
       return EXIT_FAILURE;
     }
   }
-  //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+  
+  // Enter the main loop for good
   my_shell.mainloop();
   
   return EXIT_SUCCESS;

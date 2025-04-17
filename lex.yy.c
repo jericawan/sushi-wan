@@ -1,5 +1,5 @@
 
-#line 2 "lex.yy.c"
+#line 3 "lex.yy.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -494,8 +494,8 @@ char *yytext;
 extern int yylex(void);
 extern int yyparse(void);
 #endif
-#line 497 "lex.yy.c"
 #line 498 "lex.yy.c"
+#line 499 "lex.yy.c"
 
 #define INITIAL 0
 
@@ -712,7 +712,7 @@ YY_DECL
 	{
 #line 22 "sushi_yylexer.l"
 
-#line 715 "lex.yy.c"
+#line 716 "lex.yy.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -880,7 +880,7 @@ YY_RULE_SETUP
 #line 57 "sushi_yylexer.l"
 ECHO;
 	YY_BREAK
-#line 883 "lex.yy.c"
+#line 884 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 

@@ -4,11 +4,23 @@
 #include <iomanip>
 #include <cstdio>
 #include <csignal>
-#include <unistd.h>
 #include <cassert>
 #include <sys/wait.h>
 #include "Sushi.hh"
-//received help from Damir and Chat gpt  
+
+Sushi::Sushi()
+{
+  prevent_interruption();
+  
+  const char *home_dir = std::getenv("HOME");
+  
+  // OK if missing!
+  if (home_dir) {
+    const std::string config_path = std::string(home_dir) + "/" + DEFAULT_CONFIG;
+    read_config(config_path.c_str(), true);
+  }
+}
+
 std::string Sushi::read_line(std::istream &in)
 {
   std::string line;
@@ -16,12 +28,13 @@ std::string Sushi::read_line(std::istream &in)
     if(!in.eof()) { 
       std::perror("getline");
     }
-    return "";
+    return {};
   }
     
   // Is the line empty?
-  if(std::all_of(line.begin(), line.end(), isspace)) {
-    return "";
+  if(std::all_of(line.begin(), line.end(),
+		 [](unsigned char c) { return std::isspace(c); })) {
+    return {};
   }
 
   // Is the line too long?
@@ -46,20 +59,12 @@ bool Sushi::read_config(const char *fname, bool ok_if_missing)
   }
 
   // Read the config file
+  std::string line;
   while(!config_file.eof()) {
-    std::string line = read_line(config_file);
-    if(line[0]=='#'|| line.empty())
-    {
-      continue;
-    }
-    else if(line=="exit")
-    {
-      exit(EXIT_SUCCESS);
-    }
-    else if(!parse_command(line)) {
+    line = read_line(config_file);
+    if(!parse_command(line)) {
       store_to_history(line);
     }
-    
   }
   
   return true; 
@@ -77,10 +82,10 @@ void Sushi::store_to_history(std::string line)
     history.pop_front();
   }
   
-  history.push_back(line);
+  history.emplace_back(line);
 }
 
-void Sushi::show_history() 
+void Sushi::show_history()
 {
   int index = 1;
 
@@ -107,105 +112,139 @@ bool Sushi::get_exit_flag() const
   return exit_flag;
 }
 
-int Sushi::spawn(Program *exe, bool bg)
+// This helper function facilitates running the child process
+static pid_t run_child (Program *prog, int fd_in, int fd_out, int fd_close)
 {
-  // DZ: Used!
-  // UNUSED(bg);
-  
   pid_t pid = fork();
-
-  if (pid == -1) { // Failed to fork
+  if (pid < 0) { // Failed to fork
     std::perror("fork");
-    return EXIT_FAILURE;
   }
 
-  if (pid == 0) { // Child    
-    char* const* args = exe->vector2array(); // No need to delete this array!
-    assert(args);
-    
-    execvp(args[0], args);
-    std::perror(args[0]);
-    // Do not run atexit handlers and flush buffers
+  if (pid != 0) {
+    return pid;
+  }
+  
+  // Redirect the I/O
+  if (fd_in != STDIN_FILENO && dup2(fd_in, STDIN_FILENO) == -1) {
+    std::perror("dup2");
+    _exit(EXIT_FAILURE);
+  }
+  if (fd_out != STDOUT_FILENO && dup2(fd_out, STDOUT_FILENO) == -1) {
+    std::perror("dup2");
     _exit(EXIT_FAILURE);
   }
 
-  // DZ: Just the opposite
-    // Parent
-  if (bg==/*true*/false) 
-  {
-    int status;
-    if(waitpid(pid, &status, 0) != pid) {
-        std::perror("waitpid");
-        return EXIT_FAILURE;
+  // Close unwanted descriptors
+  if (fd_close != -1) { close(fd_close); }
+
+  char *const *argv = prog->vector2array();
+  assert(argv);
+  execvp(argv[0], argv);
+  
+  std::perror(argv[0]);
+  // Do not run atexit handlers and flush buffers
+  _exit(EXIT_FAILURE);
+}
+
+int Sushi::spawn(Program *right, bool bg) const
+{
+  pid_t left_pid, right_pid;
+  int pipefd[2];
+  Program *left = right->prev();
+    
+  if (left) {
+    if (pipe(pipefd) == -1) {
+      std::perror("pipe");
+      return EXIT_FAILURE;
     }
-      status = WEXITSTATUS(status);
-      putenv(new std::string("?"), new std::string(std::to_string(status)));
-  } 
-  else
-  {
-    putenv(new std::string("?"), new std::string("0"));
+
+    // Fork a child
+    if ((left_pid = run_child(left, STDIN_FILENO, pipefd[1], pipefd[0])) < 0) {
+      return EXIT_FAILURE;
+    }
+
+    // Fork another child
+    if ((right_pid = run_child(right, pipefd[0], STDOUT_FILENO, pipefd[1])) < 0) {
+      return EXIT_FAILURE;
+    }
+
+    // Parent: close unused pipe ends
+    close(pipefd[0]);
+    close(pipefd[1]);
+  } else {
+    // Fork a child
+    if ((right_pid = run_child(right, STDIN_FILENO, STDOUT_FILENO, -1)) < 0) {
+      return EXIT_FAILURE;
+    }
   }
 
+
+  // Parent handles foreground execution, if necessary
+  if (bg) {
+     setenv("?", "", 1);
+     return EXIT_SUCCESS;   
+  }
+  
+  // Inspect the pids in the reverse order to get the most recent status
+  int status;
+
+  if ((left && waitpid(left_pid, &status, 0) != left_pid)
+      || waitpid(right_pid, &status, 0) != right_pid) {
+    std::perror("waitpid");
+    return EXIT_FAILURE;
+  }
+
+  // Save the exit status in the environment
+  setenv("?", std::to_string(status).c_str(), 1);
   return EXIT_SUCCESS;
 }
 
-void Sushi::prevent_interruption() {
+void Sushi::prevent_interruption()
+{
   struct sigaction sa;
   sa.sa_handler = refuse_to_die;
   // Restart the read() system call
   sa.sa_flags = SA_RESTART;
-  if(sigaction(SIGINT, &sa, nullptr) != 0) {
+  if (sigaction(SIGINT, &sa, nullptr) != 0) {
     std::perror("sigaction");
     std::exit(EXIT_FAILURE);
   }
 }
 
-void Sushi::refuse_to_die(int signo) {
+void Sushi::refuse_to_die(int signo)
+{
   UNUSED(signo);
   std::cerr << "Type exit to exit the shell" << '\n';
 }
 
-void Sushi::mainloop() {
-  // Must be implemented
-  // DZ: This code goes into the constructor!!!
-  Sushi::prevent_interruption();
-  
-  const char *home_dir = std::getenv("HOME");
-  // OK if missing!
-  if (home_dir) {
-    std::string config_path = std::string(home_dir) + "/" + Sushi::DEFAULT_CONFIG;
-    my_shell.read_config(config_path.c_str(), true);
-  }
-  //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  //-------------------------------------------
-  while(!my_shell.get_exit_flag()) {
-  if(getenv("PS1")->empty())
-  {
-    std::cout << Sushi::DEFAULT_PROMPT;
-  }
-  else if(!getenv("PS1")->empty())
-  {
-    std::cout<<getenv("PS1")->c_str();
-  }
+void Sushi::mainloop()
+{
+  while (!get_exit_flag()) {
+    const char *prompt = std::getenv("PS1");
+    std::cout << (prompt ? prompt : DEFAULT_PROMPT);
+    std::cout.flush();  // Ensure prompt is displayed immediately
     
-   std::string command = Sushi::read_line(std::cin);
-
-   // DZ: Clean the comments before submitting
-    // while(!my_shell.get_exit_flag()) {
-    // std::cout << Sushi::DEFAULT_PROMPT;
-    // std::string command = Sushi::read_line(std::cin);
+    const std::string command = read_line(std::cin);
     
-    if(!Sushi::parse_command(command)) {
-      // Re-execute from history if needed
-      if(!my_shell.re_execute()) {
-	// Do not insert the bangs (!)
-	my_shell.store_to_history(command);
-      }
+    if (!parse_command(command) && !re_execute()) {	
+      store_to_history(command); // Do not insert the bangs (!)
     }
   }
 }
 
-char* const* Program::vector2array() {
+// Two new methods to implement
+void Sushi::pwd()
+{
+  std::cerr << "pwd: not implemented yet" << std::endl;
+}
+
+void Sushi::cd(std::string *s)
+{
+  std::cerr << "cd(" << *s << "): not implemented yet" << std::endl;
+}
+
+char* const* Program::vector2array()
+{
   // std::vector<std::string*> *args -> char *const argv[]
   assert(args);
   
@@ -221,6 +260,7 @@ char* const* Program::vector2array() {
   return array;
 }
 
-Program::~Program() {
+Program::~Program()
+{
   // Do not implement now
 }
