@@ -10,13 +10,18 @@ private:
   const std::string *redir_in, *redir_out1, *redir_out2;
   
 public:
-  void clear() { redir_out1 = redir_out2 = redir_in = nullptr; }
+ void clear() { redir_out1 = redir_out2 = redir_in = nullptr; }
+  void set_in(std::string *fname)   { redir_in = fname; }
   void set_out1(std::string *fname) { redir_out1 = fname; }
   void set_out2(std::string *fname) { redir_out2 = fname; }
-  void set_in(std::string *fname)   { redir_in = fname; }
-  void set_in(Redirection &redir)   {
-    redir_in = redir.redir_out1 ? redir.redir_out1 : redir.redir_out2;
-  }
+  void set_in(Redirection &redir)   { redir_in = redir.redir_in; }
+  // {
+  //   redir_in = redir.redir_out1 ? redir.redir_out1 : redir.redir_out2;
+  // }
+ const std::string* get_in() const { return redir_in; }
+ const std::string* get_out1() const { return redir_out1; }
+ const std::string* get_out2() const {return redir_out2;}
+ 
 };
 
 // The program to be executed
@@ -33,6 +38,7 @@ public:
   void set_pipe(Program *pipe) { this->pipe = pipe; };
   void set_redir(Redirection &redir) { this->redir = redir; };
   void clear_redir() { redir.clear(); }
+  Redirection get_redir() const {return redir;}
   std::string progname() { return *args->at(0);}
   Program* get_pipe() { return this-> pipe; }
   
