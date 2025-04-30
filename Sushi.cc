@@ -299,7 +299,7 @@ void Sushi::cd(std::string *s)
 
 char *const *Program::vector2array()
 {
-  // std::vector<std::string*> *args -> char *const argv[]
+  
   assert(args);
 
   size_t size = args->size();
